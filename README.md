@@ -181,6 +181,14 @@ source .venv/bin/activate
 uv pip install -e .
 ```
 
+On GPU images that already ship with CUDA and PyTorch, prefer:
+
+```bash
+uv venv --system-site-packages
+source .venv/bin/activate
+uv pip install -e .
+```
+
 If this machine will launch `vllm serve` locally, also install vLLM:
 
 ```bash
@@ -243,6 +251,34 @@ The intended flow is:
 4. Run `ils run --base-url https://<POD_ID>-8000.proxy.runpod.net/v1 ...` from your laptop for remote measurements.
 
 This repo should talk directly to `vllm serve` on port `8000`, not a separate wrapper service.
+
+Example RunPod creation for a near-region H100:
+
+```bash
+runpodctl create pod \
+  --name "ils-us-ca" \
+  --gpuType "NVIDIA H100 80GB HBM3" \
+  --dataCenterId "US-CA-2" \
+  --imageName "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
+  --containerDiskSize 50 \
+  --volumeSize 50 \
+  --ports "8000/http" \
+  --startSSH
+```
+
+Example far-region pod:
+
+```bash
+runpodctl create pod \
+  --name "ils-eu-nl" \
+  --gpuType "NVIDIA H100 80GB HBM3" \
+  --dataCenterId "EU-NL-1" \
+  --imageName "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
+  --containerDiskSize 50 \
+  --volumeSize 50 \
+  --ports "8000/http" \
+  --startSSH
+```
 
 Example remote-from-laptop run:
 

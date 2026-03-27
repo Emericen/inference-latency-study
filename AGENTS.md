@@ -138,19 +138,6 @@ uv pip install vllm
 
 RunPod is the preferred deployment layer for controlled remote experiments.
 
-### Current Pod
-
-| Field | Value |
-|-------|-------|
-| Pod ID | `4q7udshslv9k74` |
-| SSH Hash | `64410ca6` |
-| GPU | 1x NVIDIA H200 SXM (141 GB VRAM) |
-| Location | US |
-| Cost | $3.59/hr |
-| Proxy URL | `https://4q7udshslv9k74-8000.proxy.runpod.net` |
-
-Update this section when a new pod is created.
-
 ### Setup
 
 #### Prerequisites
@@ -170,42 +157,32 @@ The SSH proxy format is:
 ssh <POD_ID>-<HASH>@ssh.runpod.io -i ~/.ssh/id_ed25519_runpod
 ```
 
-For the current pod:
-
-```bash
-ssh 4q7udshslv9k74-64410ca6@ssh.runpod.io -i ~/.ssh/id_ed25519_runpod
-```
-
-#### Template
-
-| Field | Value |
-|-------|-------|
-| Template ID | `md7f6tc1gq` |
-| Image | `iitseddy/desktop-autocomplete:latest` |
-| Container disk | 50 GB |
-| Volume disk | 100 GB (persistent at `/workspace`) |
-| Ports | 8000/http, 443/http |
-| SSH | Enabled |
-
-Templates can be listed via REST API but not edited from the CLI:
-
-```bash
-curl -s -H "Authorization: Bearer $RUNPOD_API_KEY" "https://rest.runpod.io/v1/templates"
-```
-
 ### Pod Lifecycle
 
 #### Create
 
 ```bash
 runpodctl create pod \
-  --templateId md7f6tc1gq \
   --gpuType "NVIDIA H100 80GB HBM3" \
   --name "inference-latency-study" \
-  --imageName "iitseddy/desktop-autocomplete:latest" \
+  --dataCenterId "US-CA-2" \
+  --imageName "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
   --containerDiskSize 50 \
-  --volumeSize 100 \
-  --volumePath "/workspace" \
+  --volumeSize 50 \
+  --ports "8000/http" \
+  --startSSH
+```
+
+Example far-region pod for latency comparison:
+
+```bash
+runpodctl create pod \
+  --gpuType "NVIDIA H100 80GB HBM3" \
+  --name "inference-latency-study-eu" \
+  --dataCenterId "EU-NL-1" \
+  --imageName "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
+  --containerDiskSize 50 \
+  --volumeSize 50 \
   --ports "8000/http" \
   --startSSH
 ```
@@ -226,7 +203,6 @@ Use two GPUs only when a topology or larger-model run actually requires it.
 ```bash
 runpodctl get pod
 runpodctl get pod <POD_ID>
-runpodctl get pod <POD_ID> -a
 runpodctl get cloud
 ```
 
@@ -294,14 +270,13 @@ cd /workspace
 git clone <REPO_URL> inference-latency-study
 cd inference-latency-study
 
-curl -LsSf https://astral.sh/uv/install.sh | sh
-export PATH="$HOME/.local/bin:$PATH"
-
-uv venv
+uv venv --system-site-packages
 source .venv/bin/activate
 uv pip install -e .
 uv pip install vllm
 ```
+
+If the repo is already cloned in `/root`, the same setup works there as well.
 
 ### Benchmark Execution
 
@@ -337,6 +312,11 @@ ils run \
   --tp-size 1 \
   --output results/raw/modality_remote.jsonl
 ```
+
+The benchmark-level difference between local and remote runs should be `--base-url` only:
+
+- local on the pod: `http://localhost:8000/v1`
+- remote from the laptop: `https://<POD_ID>-8000.proxy.runpod.net/v1`
 
 ### Troubleshooting
 

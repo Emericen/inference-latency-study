@@ -24,7 +24,6 @@ def aggregate_jsonl(input_path: str, output_path: str) -> Path:
                 "cache_mode",
                 "prompt_tokens",
                 "image_count",
-                "image_bytes",
                 "base_url",
                 "region",
                 "gpu_type",
