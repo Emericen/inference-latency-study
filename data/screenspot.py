@@ -173,7 +173,7 @@ def prepare_bucketed_images(
     bucket_targets: list[int],
     per_bucket: int,
     revision: str | None = None,
-    tolerance_ratio: float = 0.05,
+    tolerance_ratio: float = 0.10,
 ) -> Path:
     samples = load_screenspot_samples(
         repo_id=repo_id,
