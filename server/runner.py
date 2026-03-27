@@ -79,8 +79,9 @@ def run_config_file(
     if not cases:
         raise ValueError(f"No cases found in config: {config_path}")
 
-    probe_case = _deep_merge(defaults, cases[0])
-    wait_until_ready(probe_case["base_url"], timeout_s=wait_for_server_timeout_s)
+    if wait_for_server_timeout_s > 0:
+        probe_case = _deep_merge(defaults, cases[0])
+        wait_until_ready(probe_case["base_url"], timeout_s=wait_for_server_timeout_s)
 
     with output.open("w", encoding="utf-8") as f:
         for case in cases:
