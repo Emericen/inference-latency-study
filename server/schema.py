@@ -18,9 +18,11 @@ class ResultRow:
     payload_kind: str
     cache_mode: str
     prompt_tokens: int
+    vision_tokens_total: int
     completion_tokens: int
     image_count: int
     image_bytes: int
+    request_bytes_total: int
     ttft_s: float | None
     total_latency_s: float
     decode_tps: float | None

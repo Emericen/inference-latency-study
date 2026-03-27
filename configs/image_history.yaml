@@ -1,0 +1,66 @@
+experiment_name: image_history_growth
+
+defaults:
+  scenario_id: image_history
+  backend: openai_compat
+  base_url: http://localhost:8000/v1
+  api_key_env: ""
+  token_budget_model: Qwen/Qwen3-VL-4B-Instruct
+  max_completion_tokens: 10
+  local_files_only: true
+  warmups: 2
+  runs: 8
+  seed: 1337
+  arch_type: dense
+  precision: bf16
+  server_mode: stateless
+  client_mode: remote
+  region: remote
+  gpu_type: unknown
+  gpu_count: 1
+  tp_size: 1
+
+cases:
+  - case_id: image_history_1x_1080p
+    model: Qwen/Qwen3-VL-8B-Instruct
+    payload:
+      kind: image_text
+      question: What changed across these screenshots?
+      target_prompt_tokens: 961
+      cache_mode: unique
+      image_count: 1
+      image_width: 1920
+      image_height: 1080
+
+  - case_id: image_history_2x_1080p
+    model: Qwen/Qwen3-VL-8B-Instruct
+    payload:
+      kind: image_text
+      question: What changed across these screenshots?
+      target_prompt_tokens: 961
+      cache_mode: unique
+      image_count: 2
+      image_width: 1920
+      image_height: 1080
+
+  - case_id: image_history_3x_1080p
+    model: Qwen/Qwen3-VL-8B-Instruct
+    payload:
+      kind: image_text
+      question: What changed across these screenshots?
+      target_prompt_tokens: 961
+      cache_mode: unique
+      image_count: 3
+      image_width: 1920
+      image_height: 1080
+
+  - case_id: image_history_4x_1080p
+    model: Qwen/Qwen3-VL-8B-Instruct
+    payload:
+      kind: image_text
+      question: What changed across these screenshots?
+      target_prompt_tokens: 961
+      cache_mode: unique
+      image_count: 4
+      image_width: 1920
+      image_height: 1080

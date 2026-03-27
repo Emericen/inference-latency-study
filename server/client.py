@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import time
+from dataclasses import dataclass
 
 from openai import OpenAI
 
-from bench.backends.base import BackendResponse, BenchmarkBackend
+
+@dataclass
+class RequestMetrics:
+    content: str
+    ttft_s: float | None
+    total_latency_s: float
 
 
-class OpenAICompatBackend(BenchmarkBackend):
-    def __init__(self, *, base_url: str, api_key: str, timeout_s: float = 300.0):
-        self.client = OpenAI(base_url=base_url, api_key=api_key, timeout=timeout_s)
+class VLLMClient:
+    def __init__(self, *, base_url: str, api_key: str = "EMPTY", timeout_s: float = 300.0):
+        self.base_url = base_url.rstrip("/")
+        self.client = OpenAI(
+            base_url=self.base_url,
+            api_key=api_key,
+            timeout=timeout_s,
+        )
 
     def run_request(
         self,
@@ -17,7 +28,7 @@ class OpenAICompatBackend(BenchmarkBackend):
         model: str,
         messages: list[dict],
         max_completion_tokens: int,
-    ) -> BackendResponse:
+    ) -> RequestMetrics:
         start = time.perf_counter()
         stream = self.client.chat.completions.create(
             model=model,
@@ -38,7 +49,7 @@ class OpenAICompatBackend(BenchmarkBackend):
                 content_parts.append(content)
 
         total_latency_s = time.perf_counter() - start
-        return BackendResponse(
+        return RequestMetrics(
             content="".join(content_parts),
             ttft_s=ttft_s,
             total_latency_s=total_latency_s,
