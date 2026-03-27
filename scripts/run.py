@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
+# The benchmark builds prompts with Hugging Face tokenizers/processors before
+# making OpenAI-compatible requests. Keep tokenizer parallelism off to avoid
+# flaky post-fork behavior during remote runs.
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 from server.runner import run_config_file
 
