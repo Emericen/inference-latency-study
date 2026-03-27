@@ -3,7 +3,8 @@ HOST ?= 0.0.0.0
 PORT ?= 8000
 BASE_URL ?= http://127.0.0.1:$(PORT)/v1
 ROOT ?= ..
-PYTHON ?= python
+PYTHON ?= $(ROOT)/.venv/bin/python
+VLLM ?= $(ROOT)/.venv/bin/vllm
 LOG_DIR ?= $(ROOT)/results/logs
 LOG_FILE ?= $(LOG_DIR)/vllm.log
 PID_FILE ?= $(LOG_DIR)/vllm.pid
@@ -19,7 +20,7 @@ vllm-up:
 	@if [ -f $(PID_FILE) ] && kill -0 "$$(cat $(PID_FILE))" 2>/dev/null; then \
 		echo "vLLM already running: $$(cat $(PID_FILE))"; \
 	else \
-		nohup vllm serve "$(MODEL)" --host "$(HOST)" --port "$(PORT)" --served-model-name "$(MODEL)" --trust-remote-code $(VLLM_EXTRA_ARGS) > "$(LOG_FILE)" 2>&1 < /dev/null & echo $$! > "$(PID_FILE)"; \
+		nohup $(VLLM) serve "$(MODEL)" --host "$(HOST)" --port "$(PORT)" --served-model-name "$(MODEL)" --trust-remote-code $(VLLM_EXTRA_ARGS) > "$(LOG_FILE)" 2>&1 < /dev/null & echo $$! > "$(PID_FILE)"; \
 		echo "started vLLM pid $$(cat $(PID_FILE))"; \
 	fi
 
