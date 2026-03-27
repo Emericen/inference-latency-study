@@ -1,0 +1,1 @@
+"""Inference latency benchmark package."""
