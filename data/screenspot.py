@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import io
 import json
 from dataclasses import asdict, dataclass
@@ -36,6 +37,8 @@ class PreparedImageRecord:
     image_height: int
     source_width: int
     source_height: int
+    source_sha256: str
+    encoded_sha256: str
 
 
 def _load_parquet_rows(parquet_path: str) -> list[ScreenSpotSample]:
@@ -182,17 +185,22 @@ def prepare_bucketed_images(
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    for old_file in output_dir.glob("*"):
+        if old_file.is_file():
+            old_file.unlink()
 
     prepared: dict[str, list[dict]] = {}
+    used_source_hashes: set[str] = set()
+    used_encoded_hashes: set[str] = set()
     for bucket_bytes in bucket_targets:
         ranked_indices = _rank_sample_indices(samples, bucket_bytes)
         selected: list[PreparedImageRecord] = []
-        used_indices: set[int] = set()
 
         for idx in ranked_indices:
-            if idx in used_indices:
-                continue
             sample = samples[idx]
+            source_sha256 = hashlib.sha256(sample.image_bytes).hexdigest()
+            if source_sha256 in used_source_hashes:
+                continue
             encoded = _fit_image_to_target_bytes(
                 _decode_sample_image(sample),
                 target_bytes=bucket_bytes,
@@ -200,6 +208,9 @@ def prepare_bucketed_images(
             )
             gap = abs(len(encoded.encoded_bytes) - bucket_bytes)
             if gap > int(bucket_bytes * tolerance_ratio):
+                continue
+            encoded_sha256 = hashlib.sha256(encoded.encoded_bytes).hexdigest()
+            if encoded_sha256 in used_encoded_hashes:
                 continue
 
             entry_index = len(selected)
@@ -215,9 +226,12 @@ def prepare_bucketed_images(
                 image_height=encoded.image.height,
                 source_width=sample.image_width,
                 source_height=sample.image_height,
+                source_sha256=source_sha256,
+                encoded_sha256=encoded_sha256,
             )
             selected.append(record)
-            used_indices.add(idx)
+            used_source_hashes.add(source_sha256)
+            used_encoded_hashes.add(encoded_sha256)
             if len(selected) >= per_bucket:
                 break
 
@@ -253,7 +267,7 @@ def load_prepared_encoded_image(
     *,
     manifest_path: str,
     target_image_bytes: int,
-    seed: int,
+    prepared_index: int,
 ) -> EncodedImage:
     manifest_records = load_prepared_manifest(manifest_path)
     bucket_key = str(target_image_bytes)
@@ -262,7 +276,12 @@ def load_prepared_encoded_image(
             f"Bucket {target_image_bytes} not found in prepared manifest: {manifest_path}"
         )
     records = manifest_records[bucket_key]
-    record = records[seed % len(records)]
+    if prepared_index < 0 or prepared_index >= len(records):
+        raise ValueError(
+            f"Prepared index {prepared_index} out of range for bucket {target_image_bytes}: "
+            f"{len(records)} records available in {manifest_path}"
+        )
+    record = records[prepared_index]
     manifest_dir = Path(manifest_path).parent
     image_path = manifest_dir / record.path
     encoded_bytes = image_path.read_bytes()

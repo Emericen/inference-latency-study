@@ -93,6 +93,7 @@ def run_config_file(
             )
 
             total_runs = merged["warmups"] + merged["runs"]
+            prepared_index_offset = merged["payload"].get("prepared_index_offset", 0)
             for request_index in range(total_runs):
                 is_warmup = request_index < merged["warmups"]
                 seed = (
@@ -100,6 +101,12 @@ def run_config_file(
                     if merged["payload"]["cache_mode"] == "repeat"
                     else merged["seed"] + request_index
                 )
+                prepared_index = None
+                if merged["payload"]["kind"] == "prepared_image_text":
+                    if merged["payload"]["cache_mode"] == "repeat":
+                        prepared_index = prepared_index_offset
+                    else:
+                        prepared_index = prepared_index_offset + request_index
                 payload = build_payload(
                     tokenizer=token_tools.tokenizer,
                     image_processor=token_tools.image_processor,
@@ -114,6 +121,7 @@ def run_config_file(
                     screenspot_parquet_path=merged["payload"].get("screenspot_parquet_path"),
                     screenspot_revision=merged["payload"].get("screenspot_revision"),
                     prepared_manifest_path=merged["payload"].get("prepared_manifest_path"),
+                    prepared_index=prepared_index,
                     target_image_bytes=merged["payload"].get("target_image_bytes"),
                 )
 

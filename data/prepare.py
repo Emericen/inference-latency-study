@@ -27,8 +27,7 @@ def main() -> None:
     parser.add_argument(
         "--per-bucket",
         type=int,
-        default=12,
-        help="How many prepared images to store per bucket.",
+        help="How many prepared images to store per bucket. Defaults to the largest warmups+runs count in the config.",
     )
     args = parser.parse_args()
 
@@ -44,6 +43,13 @@ def main() -> None:
     revision = first_payload.get("screenspot_revision")
     bucket_targets = [int(case["payload"]["target_image_bytes"]) for case in cases]
 
+    required_per_bucket = max(
+        int(case.get("warmups", config["defaults"]["warmups"]))
+        + int(case.get("runs", config["defaults"]["runs"]))
+        for case in cases
+    )
+    per_bucket = max(required_per_bucket, args.per_bucket or 0)
+
     output_dir = ROOT / args.output_dir
     manifest_path = output_dir / "manifest.json"
     prepare_bucketed_images(
@@ -53,7 +59,7 @@ def main() -> None:
         output_dir=output_dir,
         manifest_path=manifest_path,
         bucket_targets=bucket_targets,
-        per_bucket=args.per_bucket,
+        per_bucket=per_bucket,
     )
     print(manifest_path)
 

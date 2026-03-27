@@ -96,6 +96,7 @@ python data/prepare.py
 
 This creates local prepared JPEG buckets and a manifest under `data/prepared/`.
 Those generated assets are used by the benchmark run, and they are intentionally not committed to version control.
+The prep step enforces unique prepared images and creates at least `warmups + runs` images per bucket so one request does not reuse another request's image within the same run.
 
 ## Run Locally On The Inference Node
 
@@ -143,6 +144,7 @@ python scripts/run.py \
 ```
 
 Local versus remote should differ only by `--base-url` and client metadata.
+If you rerun the same config against the same live server and want to avoid reusing prepared images, either restart `vllm` or pass a different `--prepared-index-offset`.
 
 ## Aggregate Results
 

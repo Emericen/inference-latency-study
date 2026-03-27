@@ -59,6 +59,7 @@ def build_payload(
     screenspot_parquet_path: str | None = None,
     screenspot_revision: str | None = None,
     prepared_manifest_path: str | None = None,
+    prepared_index: int | None = None,
     target_image_bytes: int | None = None,
 ) -> BuiltPayload:
     if payload_kind == "text_only":
@@ -143,6 +144,8 @@ def build_payload(
     if payload_kind == "prepared_image_text":
         if prepared_manifest_path is None:
             raise ValueError("prepared_image_text payloads require prepared_manifest_path")
+        if prepared_index is None:
+            raise ValueError("prepared_image_text payloads require prepared_index")
         if target_image_bytes is None:
             raise ValueError(
                 "prepared_image_text payloads require target_image_bytes"
@@ -152,7 +155,7 @@ def build_payload(
             load_prepared_encoded_image(
                 manifest_path=prepared_manifest_path,
                 target_image_bytes=target_image_bytes,
-                seed=seed + image_index,
+                prepared_index=prepared_index + image_index,
             )
             for image_index in range(image_count)
         ]

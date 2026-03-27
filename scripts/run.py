@@ -28,6 +28,11 @@ def main() -> None:
     parser.add_argument("--runs", type=int, help="Override measured runs per case.")
     parser.add_argument("--warmups", type=int, help="Override warmups per case.")
     parser.add_argument(
+        "--prepared-index-offset",
+        type=int,
+        help="Offset into the prepared image manifest for prepared-image payloads.",
+    )
+    parser.add_argument(
         "--wait-for-server-timeout-s",
         type=float,
         default=30.0,
@@ -52,6 +57,8 @@ def main() -> None:
         overrides["runs"] = args.runs
     if args.warmups is not None:
         overrides["warmups"] = args.warmups
+    if args.prepared_index_offset is not None:
+        overrides["payload"] = {"prepared_index_offset": args.prepared_index_offset}
 
     out = run_config_file(
         path=args.config,

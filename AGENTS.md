@@ -75,6 +75,7 @@ Local versus remote should differ only by `--base-url` and metadata such as `--c
 
 Run `python data/prepare.py` before measurement runs that use prepared screenshot buckets.
 The prepared JPEGs and manifest live under `data/prepared/` locally and are not tracked in git.
+Prepared-image runs must not reuse an image within the same server lifetime unless that reuse is intentional. The prep step should generate at least `warmups + runs` unique images per bucket, and reruns on the same server should use a different `--prepared-index-offset` or a fresh server process.
 
 ## Environment
 
