@@ -8,8 +8,8 @@ import numpy as np
 from PIL import Image
 
 from data.screenspot import (
-    build_screenspot_encoded_image,
     encoded_image_to_data_url,
+    load_prepared_encoded_image,
 )
 from data.text import build_text_for_token_budget
 from data.token_budget import (
@@ -58,6 +58,7 @@ def build_payload(
     screenspot_repo_id: str | None = None,
     screenspot_parquet_path: str | None = None,
     screenspot_revision: str | None = None,
+    prepared_manifest_path: str | None = None,
     target_image_bytes: int | None = None,
 ) -> BuiltPayload:
     if payload_kind == "text_only":
@@ -139,21 +140,17 @@ def build_payload(
             image_bytes=image_bytes,
         )
 
-    if payload_kind == "screenspot_image_text":
-        if screenspot_repo_id is None or screenspot_parquet_path is None:
-            raise ValueError(
-                "screenspot_image_text payloads require screenspot_repo_id and screenspot_parquet_path"
-            )
+    if payload_kind == "prepared_image_text":
+        if prepared_manifest_path is None:
+            raise ValueError("prepared_image_text payloads require prepared_manifest_path")
         if target_image_bytes is None:
             raise ValueError(
-                "screenspot_image_text payloads require target_image_bytes"
+                "prepared_image_text payloads require target_image_bytes"
             )
         image_count = max(1, image_count)
         encoded_images = [
-            build_screenspot_encoded_image(
-                repo_id=screenspot_repo_id,
-                parquet_path=screenspot_parquet_path,
-                revision=screenspot_revision,
+            load_prepared_encoded_image(
+                manifest_path=prepared_manifest_path,
                 target_image_bytes=target_image_bytes,
                 seed=seed + image_index,
             )

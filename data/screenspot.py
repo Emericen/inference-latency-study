@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import base64
 import io
-from dataclasses import dataclass
+import json
+from dataclasses import asdict, dataclass
 from functools import lru_cache
+from pathlib import Path
 
 from huggingface_hub import hf_hub_download
 from PIL import Image
@@ -22,6 +24,18 @@ class EncodedImage:
     image: Image.Image
     encoded_bytes: bytes
     mime_type: str
+
+
+@dataclass(frozen=True)
+class PreparedImageRecord:
+    bucket_bytes: int
+    index: int
+    path: str
+    image_bytes: int
+    image_width: int
+    image_height: int
+    source_width: int
+    source_height: int
 
 
 def _load_parquet_rows(parquet_path: str) -> list[ScreenSpotSample]:
@@ -89,6 +103,7 @@ def _fit_image_to_target_bytes(
     scale = 1.0
     best_bytes: bytes | None = None
     best_gap: int | None = None
+    best_image = current
 
     while scale >= min_scale:
         low = min_quality
@@ -115,6 +130,7 @@ def _fit_image_to_target_bytes(
             if best_gap is None or gap < best_gap:
                 best_bytes = candidate_bytes
                 best_gap = gap
+                best_image = current
             if gap <= int(target_bytes * tolerance_ratio):
                 return EncodedImage(
                     image=current,
@@ -130,57 +146,132 @@ def _fit_image_to_target_bytes(
     if best_bytes is None:
         raise ValueError("Unable to encode image to target byte budget")
     return EncodedImage(
-        image=current,
+        image=best_image,
         encoded_bytes=best_bytes,
         mime_type="image/jpeg",
     )
 
 
-def build_screenspot_encoded_image(
+def _rank_sample_indices(samples: list[ScreenSpotSample], target_image_bytes: int) -> list[int]:
+    desired_min_bytes = int(target_image_bytes * 1.5)
+    return sorted(
+        range(len(samples)),
+        key=lambda idx: (
+            0 if len(samples[idx].image_bytes) >= desired_min_bytes else 1,
+            abs(len(samples[idx].image_bytes) - desired_min_bytes),
+            idx,
+        ),
+    )
+
+
+def prepare_bucketed_images(
     *,
     repo_id: str,
     parquet_path: str,
-    target_image_bytes: int,
-    seed: int,
+    output_dir: Path,
+    manifest_path: Path,
+    bucket_targets: list[int],
+    per_bucket: int,
     revision: str | None = None,
-    search_limit: int = 64,
     tolerance_ratio: float = 0.05,
-) -> EncodedImage:
+) -> Path:
     samples = load_screenspot_samples(
         repo_id=repo_id,
         parquet_path=parquet_path,
         revision=revision,
     )
-    desired_min_bytes = int(target_image_bytes * 1.5)
-    ranked_indices = sorted(
-        range(len(samples)),
-        key=lambda idx: (
-            0 if len(samples[idx].image_bytes) >= desired_min_bytes else 1,
-            abs(len(samples[idx].image_bytes) - desired_min_bytes),
-            (idx - seed) % len(samples),
-        ),
-    )
-    best_image: EncodedImage | None = None
-    best_gap: int | None = None
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
 
-    for idx in ranked_indices[: min(search_limit, len(samples))]:
-        sample = samples[idx]
-        image = _decode_sample_image(sample)
-        encoded = _fit_image_to_target_bytes(
-            image,
-            target_bytes=target_image_bytes,
-            tolerance_ratio=tolerance_ratio,
+    prepared: dict[str, list[dict]] = {}
+    for bucket_bytes in bucket_targets:
+        ranked_indices = _rank_sample_indices(samples, bucket_bytes)
+        selected: list[PreparedImageRecord] = []
+        used_indices: set[int] = set()
+
+        for idx in ranked_indices:
+            if idx in used_indices:
+                continue
+            sample = samples[idx]
+            encoded = _fit_image_to_target_bytes(
+                _decode_sample_image(sample),
+                target_bytes=bucket_bytes,
+                tolerance_ratio=tolerance_ratio,
+            )
+            gap = abs(len(encoded.encoded_bytes) - bucket_bytes)
+            if gap > int(bucket_bytes * tolerance_ratio):
+                continue
+
+            entry_index = len(selected)
+            file_name = f"bucket_{bucket_bytes}_{entry_index:02d}.jpg"
+            file_path = output_dir / file_name
+            file_path.write_bytes(encoded.encoded_bytes)
+            record = PreparedImageRecord(
+                bucket_bytes=bucket_bytes,
+                index=entry_index,
+                path=file_name,
+                image_bytes=len(encoded.encoded_bytes),
+                image_width=encoded.image.width,
+                image_height=encoded.image.height,
+                source_width=sample.image_width,
+                source_height=sample.image_height,
+            )
+            selected.append(record)
+            used_indices.add(idx)
+            if len(selected) >= per_bucket:
+                break
+
+        if len(selected) < per_bucket:
+            raise ValueError(
+                f"Only prepared {len(selected)} images for bucket {bucket_bytes}, expected {per_bucket}"
+            )
+        prepared[str(bucket_bytes)] = [asdict(record) for record in selected]
+
+    manifest = {
+        "repo_id": repo_id,
+        "parquet_path": parquet_path,
+        "revision": revision,
+        "bucket_targets": bucket_targets,
+        "per_bucket": per_bucket,
+        "records": prepared,
+    }
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return manifest_path
+
+
+@lru_cache(maxsize=16)
+def load_prepared_manifest(manifest_path: str) -> dict[str, list[PreparedImageRecord]]:
+    manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+    records = manifest["records"]
+    return {
+        bucket: [PreparedImageRecord(**record) for record in bucket_records]
+        for bucket, bucket_records in records.items()
+    }
+
+
+def load_prepared_encoded_image(
+    *,
+    manifest_path: str,
+    target_image_bytes: int,
+    seed: int,
+) -> EncodedImage:
+    manifest_records = load_prepared_manifest(manifest_path)
+    bucket_key = str(target_image_bytes)
+    if bucket_key not in manifest_records:
+        raise ValueError(
+            f"Bucket {target_image_bytes} not found in prepared manifest: {manifest_path}"
         )
-        gap = abs(len(encoded.encoded_bytes) - target_image_bytes)
-        if best_gap is None or gap < best_gap:
-            best_image = encoded
-            best_gap = gap
-        if gap <= int(target_image_bytes * tolerance_ratio):
-            return encoded
-
-    if best_image is None:
-        raise ValueError("Unable to find ScreenSpot sample for target byte bucket")
-    return best_image
+    records = manifest_records[bucket_key]
+    record = records[seed % len(records)]
+    manifest_dir = Path(manifest_path).parent
+    image_path = manifest_dir / record.path
+    encoded_bytes = image_path.read_bytes()
+    image = Image.open(io.BytesIO(encoded_bytes)).convert("RGB")
+    return EncodedImage(
+        image=image,
+        encoded_bytes=encoded_bytes,
+        mime_type="image/jpeg",
+    )
 
 
 def encoded_image_to_data_url(encoded_image: EncodedImage) -> tuple[str, int]:

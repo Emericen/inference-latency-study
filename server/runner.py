@@ -112,6 +112,7 @@ def run_config_file(
                     screenspot_repo_id=merged["payload"].get("screenspot_repo_id"),
                     screenspot_parquet_path=merged["payload"].get("screenspot_parquet_path"),
                     screenspot_revision=merged["payload"].get("screenspot_revision"),
+                    prepared_manifest_path=merged["payload"].get("prepared_manifest_path"),
                     target_image_bytes=merged["payload"].get("target_image_bytes"),
                 )
 
@@ -169,5 +170,6 @@ def run_config_file(
                     tp_size=merged.get("tp_size", 1),
                 )
                 f.write(json.dumps(row.to_dict()) + "\n")
+                f.flush()
 
     return output

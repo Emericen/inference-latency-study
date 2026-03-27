@@ -25,6 +25,8 @@ def main() -> None:
     parser.add_argument("--gpu-type", help="Override GPU type metadata.")
     parser.add_argument("--gpu-count", type=int, help="Override GPU count metadata.")
     parser.add_argument("--tp-size", type=int, help="Override tensor parallel size metadata.")
+    parser.add_argument("--runs", type=int, help="Override measured runs per case.")
+    parser.add_argument("--warmups", type=int, help="Override warmups per case.")
     parser.add_argument(
         "--wait-for-server-timeout-s",
         type=float,
@@ -46,6 +48,10 @@ def main() -> None:
         overrides["gpu_count"] = args.gpu_count
     if args.tp_size is not None:
         overrides["tp_size"] = args.tp_size
+    if args.runs is not None:
+        overrides["runs"] = args.runs
+    if args.warmups is not None:
+        overrides["warmups"] = args.warmups
 
     out = run_config_file(
         path=args.config,

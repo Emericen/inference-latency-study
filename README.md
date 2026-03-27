@@ -94,6 +94,9 @@ Pre-download the ScreenSpot shard used by the main benchmark:
 python data/prepare.py
 ```
 
+This creates local prepared JPEG buckets and a manifest under `data/prepared/`.
+Those generated assets are used by the benchmark run, and they are intentionally not committed to version control.
+
 ## Run Locally On The Inference Node
 
 Start `vllm serve` in one terminal:

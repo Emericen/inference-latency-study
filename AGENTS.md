@@ -73,6 +73,9 @@ python scripts/run.py \
 
 Local versus remote should differ only by `--base-url` and metadata such as `--client-mode` and `--region`.
 
+Run `python data/prepare.py` before measurement runs that use prepared screenshot buckets.
+The prepared JPEGs and manifest live under `data/prepared/` locally and are not tracked in git.
+
 ## Environment
 
 Preferred setup:
