@@ -6,156 +6,176 @@ This repo answers one question: **What drives inference latency for computer-use
 
 The goal is to identify which latency bottlenecks constrain the design of fast and usable agent products.
 
-## Scope
+## What it measures
 
-This benchmark measures:
+- Time to first token (TTFT)
+- Total completion latency
+- Decode throughput
 
-- time to first token
-- total completion latency
-- decode throughput
+The core comparison is **image+text vs text-only** at matched token counts, so latency differences come from modality rather than payload size.
 
-This benchmark does not measure:
+## Repo layout
 
-- output quality
-- tool execution time
-- task completion success
-
-The current main study focuses on:
-
-- `Qwen3-VL`
-- stateless OpenAI-compatible `vLLM`
-- realistic screenshot payloads from `ScreenSpot`
-- remote request size buckets instead of raw image resolution
-
-## Repo Layout
-
-- `data/`: prepares payloads and token accounting
-- `server/`: talks to `vLLM` and records per-request latency
-- `scripts/`: human entrypoints for prepare, run, aggregate, and server lifecycle
-- `configs/`: experiment YAML files
-
-## Main Experiment
-
-The core experiment varies serialized screenshot payload size while holding the rest of the stack fixed.
-
-Current bucket targets:
-
-- `128 KB`
-- `256 KB`
-- `512 KB`
-- `768 KB`
-- `1 MB`
-
-Each request logs:
-
-- `ttft_s`
-- `total_latency_s`
-- `decode_tps`
-- `prompt_tokens`
-- `vision_tokens_total`
-- `image_bytes`
-- `request_bytes_total`
-
-Reported summaries use:
-
-- `p50`
-- `p95`
-- mean
+```
+Makefile                   # Server-side: start/stop vLLM
+requirements.txt           # Client-side Python dependencies
+data/
+  capture.py               # Capture screenshots (left-click to save, right-click to stop)
+  dataset.py               # Build paired dataset from screenshots
+  screenshots/             # Raw captures (gitignored)
+  prepared/                # Built dataset (gitignored)
+scripts/
+  run.py                   # Run benchmark against a vLLM server
+  aggregate.py             # JSONL → CSV summary
+```
 
 ## Setup
 
-Create an environment and install the repo:
+### Client side (your laptop)
 
 ```bash
-uv venv
-source .venv/bin/activate
-uv pip install -e .
+pip install -r requirements.txt
 ```
 
-On GPU images that already ship with CUDA and PyTorch, prefer:
+### Server side (GPU node)
+
+Clone the repo and install vLLM:
 
 ```bash
-uv venv --system-site-packages
-source .venv/bin/activate
-uv pip install -e .
+pip install vllm
 ```
 
-If this machine will host `vllm serve`, also install:
+## Step 1: Capture screenshots
+
+On your local machine, run the capture script and use your computer normally. Left-click saves a screenshot, right-click stops.
 
 ```bash
-uv pip install vllm
+python data/capture.py
 ```
 
-## Prepare Data
+Aim for ~100 screenshots. They save to `data/screenshots/` with timestamp filenames.
 
-Pre-download the ScreenSpot shard used by the main benchmark:
+## Step 2: Build the dataset
+
+This counts vision tokens per screenshot using Qwen3-VL's image processor, then generates a random text chunk with the exact same token count for each image.
 
 ```bash
-python data/prepare.py
+python data/dataset.py
 ```
 
-This creates local prepared JPEG buckets and a manifest under `data/prepared/`.
-Those generated assets are used by the benchmark run, and they are intentionally not committed to version control.
-The prep step enforces unique prepared images and creates at least `warmups + runs` images per bucket so one request does not reuse another request's image within the same run.
-
-## Run Locally On The Inference Node
-
-Start `vllm serve` in one terminal:
+To download the tokenizer on first run (if not cached locally):
 
 ```bash
-make -C scripts vllm-up MODEL=Qwen/Qwen3-VL-8B-Instruct
-make -C scripts vllm-wait
+python data/dataset.py --no-local-files-only
 ```
 
-Run the main payload-bucket benchmark in another terminal:
+The dataset saves to `data/prepared/benchmark_dataset/`.
+
+## Step 3: Start the server
+
+SSH into your GPU node and start vLLM:
+
+```bash
+make vllm-up
+```
+
+Watch the logs until the server is ready:
+
+```bash
+make vllm-logs
+```
+
+You'll see a line like `Uvicorn running on http://0.0.0.0:8000` when it's ready.
+
+To use a different model:
+
+```bash
+make vllm-up MODEL=Qwen/Qwen3-VL-4B-Instruct
+```
+
+## Step 4: Run the benchmark
+
+Back on the client machine, run once per modality:
+
+```bash
+# Image + text
+python scripts/run.py \
+  --base-url http://<SERVER_IP>:8000/v1 \
+  --modality image \
+  --output results/raw/image_remote.jsonl
+
+# Text only (matched token count)
+python scripts/run.py \
+  --base-url http://<SERVER_IP>:8000/v1 \
+  --modality text \
+  --output results/raw/text_remote.jsonl
+```
+
+For a local comparison (run this on the GPU node itself):
 
 ```bash
 python scripts/run.py \
-  --config configs/screenspot_payload_buckets.yaml \
-  --base-url http://127.0.0.1:8000/v1 \
-  --client-mode local \
-  --region us-ca \
-  --gpu-type "NVIDIA H100 80GB HBM3" \
-  --gpu-count 1 \
-  --tp-size 1 \
-  --output results/raw/screenspot_payload_buckets_local.jsonl
-```
+  --base-url http://localhost:8000/v1 \
+  --modality image \
+  --output results/raw/image_local.jsonl
 
-Stop the server when done:
-
-```bash
-make -C scripts vllm-down
-```
-
-## Run Remotely From Another Machine
-
-Point the same benchmark at the pod proxy URL:
-
-```bash
 python scripts/run.py \
-  --config configs/screenspot_payload_buckets.yaml \
-  --base-url https://<POD_ID>-8000.proxy.runpod.net/v1 \
-  --client-mode remote \
-  --region us-ca \
-  --gpu-type "NVIDIA H100 80GB HBM3" \
-  --gpu-count 1 \
-  --tp-size 1 \
-  --output results/raw/screenspot_payload_buckets_remote.jsonl
+  --base-url http://localhost:8000/v1 \
+  --modality text \
+  --output results/raw/text_local.jsonl
 ```
 
-Local versus remote should differ only by `--base-url` and client metadata.
-If you rerun the same config against the same live server and want to avoid reusing prepared images, either restart `vllm` or pass a different `--prepared-index-offset`.
+Options:
 
-## Aggregate Results
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--model` | `Qwen/Qwen3-VL-8B-Instruct` | Model name served by vLLM |
+| `--warmups` | `2` | Warmup requests (excluded from results) |
+| `--runs` | `10` | Measured requests |
+| `--max-tokens` | `10` | Max completion tokens per request |
+| `--dataset` | `data/prepared/benchmark_dataset` | Path to built dataset |
+
+## Step 5: Aggregate results
 
 ```bash
 python scripts/aggregate.py \
-  --input results/raw/screenspot_payload_buckets_remote.jsonl \
-  --output results/summaries/screenspot_payload_buckets_remote.csv
+  --input results/raw/image_remote.jsonl \
+  --output results/summaries/image_remote.csv
+```
+
+## Step 6: Stop the server
+
+```bash
+make vllm-down
 ```
 
 ## RunPod
 
-RunPod provisioning and SSH workflow live in [AGENTS.md](AGENTS.md).
+Create an H100 pod:
 
-This repo assumes direct `vllm serve` on port `8000`. RunPod does not support Docker-in-Docker here, so server lifecycle is managed by shell scripts and Make targets instead of nested containers.
+```bash
+runpodctl create pod \
+  --gpuType "NVIDIA H100 80GB HBM3" \
+  --name "inference-latency-study" \
+  --dataCenterId "US-CA-2" \
+  --imageName "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04" \
+  --containerDiskSize 50 \
+  --volumeSize 50 \
+  --ports "8000/http" \
+  --startSSH
+```
+
+The vLLM API is exposed at:
+
+```
+https://<POD_ID>-8000.proxy.runpod.net/v1
+```
+
+SSH in, clone the repo, `make vllm-up`, then run the benchmark from your laptop pointing at the proxy URL.
+
+```bash
+runpodctl get pod
+runpodctl ssh connect <POD_ID>
+runpodctl stop pod <POD_ID>
+runpodctl remove pod <POD_ID>
+```

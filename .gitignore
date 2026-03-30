@@ -4,4 +4,5 @@ __pycache__/
 results/
 artifacts/
 *.egg-info/
+data/screenshots/
 data/prepared/
