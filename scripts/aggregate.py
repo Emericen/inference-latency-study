@@ -13,7 +13,7 @@ def aggregate_jsonl(input_path: str, output_path: str) -> Path:
     df = df[df["is_warmup"] == False].copy()
 
     grouped = (
-        df.groupby(["modality", "model", "base_url"], dropna=False)
+        df.groupby(["modality", "history_images", "model", "base_url"], dropna=False)
         .agg(
             requests=("row_index", "count"),
             vision_tokens_mean=("vision_tokens", "mean"),

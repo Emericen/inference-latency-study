@@ -1,19 +1,35 @@
 MODEL ?= Qwen/Qwen3-VL-8B-Instruct
-HOST ?= 0.0.0.0
+SERVED_MODEL_NAME ?= MODEL
 PORT ?= 8000
+TENSOR_PARALLEL ?= 1
 LOG_DIR ?= results/logs
 LOG_FILE ?= $(LOG_DIR)/vllm.log
 PID_FILE ?= $(LOG_DIR)/vllm.pid
-VLLM_EXTRA_ARGS ?=
+PYTHON ?= python3
+UV ?= uv
+VENV_PYTHON ?= .venv/bin/python
+VLLM ?= .venv/bin/vllm
 
-.PHONY: vllm-up vllm-down vllm-logs
+.PHONY: ensure-venv vllm-up vllm-down vllm-logs
 
-vllm-up:
+ensure-venv:
+	@command -v "$(UV)" >/dev/null 2>&1 || $(PYTHON) -m pip install uv
+	@test -x "$(VENV_PYTHON)" || "$(UV)" venv
+	@"$(UV)" pip install --python "$(VENV_PYTHON)" vllm
+
+vllm-up: ensure-venv
 	mkdir -p $(LOG_DIR)
 	@if [ -f $(PID_FILE) ] && kill -0 "$$(cat $(PID_FILE))" 2>/dev/null; then \
 		echo "vLLM already running: $$(cat $(PID_FILE))"; \
 	else \
-		nohup vllm serve "$(MODEL)" --host "$(HOST)" --port "$(PORT)" --served-model-name "$(MODEL)" --trust-remote-code $(VLLM_EXTRA_ARGS) > "$(LOG_FILE)" 2>&1 < /dev/null & echo $$! > "$(PID_FILE)"; \
+		nohup "$(VLLM)" serve "$(MODEL)" \
+			--host 0.0.0.0 \
+			--port "$(PORT)" \
+			--served-model-name "$(SERVED_MODEL_NAME)" \
+			--enable-prefix-caching \
+			--tensor-parallel-size $(TENSOR_PARALLEL) \
+			--trust-remote-code \
+			> "$(LOG_FILE)" 2>&1 < /dev/null & echo $$! > "$(PID_FILE)"; \
 		echo "started vLLM pid $$(cat $(PID_FILE))"; \
 	fi
 

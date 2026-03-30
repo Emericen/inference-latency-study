@@ -39,10 +39,11 @@ pip install -r requirements.txt
 
 ### Server side (GPU node)
 
-Clone the repo and install vLLM:
+Clone the repo. `make vllm-up` will bootstrap a local `.venv/` with `uv`
+and install `vllm` automatically on first run.
 
 ```bash
-pip install vllm
+make vllm-up
 ```
 
 ## Step 1: Capture screenshots
@@ -78,6 +79,9 @@ SSH into your GPU node and start vLLM:
 ```bash
 make vllm-up
 ```
+
+This uses the repo-local `.venv/bin/vllm`, so it does not depend on manually
+activating a shell environment first.
 
 Watch the logs until the server is ready:
 
@@ -129,7 +133,7 @@ Options:
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--model` | `Qwen/Qwen3-VL-8B-Instruct` | Model name served by vLLM |
+| `--model` | `MODEL` | Stable served model name exposed by vLLM |
 | `--warmups` | `2` | Warmup requests (excluded from results) |
 | `--runs` | `10` | Measured requests |
 | `--max-tokens` | `10` | Max completion tokens per request |

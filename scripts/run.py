@@ -27,6 +27,7 @@ DATASET_DIR = Path(__file__).resolve().parents[1] / "data" / "prepared" / "bench
 class ResultRow:
     row_index: int
     modality: str
+    history_images: int
     is_warmup: bool
     model: str
     vision_tokens: int
@@ -45,13 +46,16 @@ def _image_to_data_url(image) -> str:
     return f"data:image/jpeg;base64,{encoded}"
 
 
-def _build_messages(row: dict, modality: str, question: str) -> list[dict]:
+def _build_messages(rows: list[dict], modality: str, question: str) -> list[dict]:
     if modality == "image":
-        return [{"role": "user", "content": [
-            {"type": "image_url", "image_url": {"url": _image_to_data_url(row["image"])}},
-            {"type": "text", "text": question},
-        ]}]
+        content = [
+            {"type": "image_url", "image_url": {"url": _image_to_data_url(row["image"])}}
+            for row in rows
+        ]
+        content.append({"type": "text", "text": question})
+        return [{"role": "user", "content": content}]
     else:
+        row = rows[0]
         return [{"role": "user", "content": f"{row['text']}\n\n --- \n\n{question}"}]
 
 
@@ -95,12 +99,30 @@ def run(
     max_tokens: int = 10,
     warmups: int = 2,
     runs: int = 10,
+    history_images: int = 1,
+    row_offset: int = 0,
+    history_mode: str = "sliding",
     api_key: str = "EMPTY",
 ) -> Path:
     ds = load_from_disk(dataset_path)
     total_needed = warmups + runs
-    if len(ds) < total_needed:
-        raise ValueError(f"Dataset has {len(ds)} rows but need {total_needed} (warmups={warmups}, runs={runs})")
+    if modality == "image":
+        if history_mode == "sliding":
+            required_rows = row_offset + total_needed + max(0, history_images - 1)
+        elif history_mode == "disjoint":
+            required_rows = row_offset + (total_needed * history_images)
+        elif history_mode == "prefix":
+            required_rows = row_offset + history_images
+        else:
+            raise ValueError(f"Unsupported history_mode={history_mode!r}")
+    else:
+        required_rows = row_offset + total_needed
+    if len(ds) < required_rows:
+        raise ValueError(
+            f"Dataset has {len(ds)} rows but need {required_rows} "
+            f"(row_offset={row_offset}, warmups={warmups}, runs={runs}, "
+            f"history_images={history_images}, history_mode={history_mode})"
+        )
 
     client = OpenAI(base_url=base_url, api_key=api_key, timeout=300.0)
     output = Path(output_path)
@@ -109,8 +131,18 @@ def run(
     with output.open("w", encoding="utf-8") as f:
         for i in range(total_needed):
             is_warmup = i < warmups
-            row = ds[i]
-            messages = _build_messages(row, modality, question)
+            if modality == "image":
+                if history_mode == "sliding":
+                    start = row_offset + i
+                    rows = [ds[start + offset] for offset in range(history_images)]
+                elif history_mode == "disjoint":
+                    start = row_offset + (i * history_images)
+                    rows = [ds[start + offset] for offset in range(history_images)]
+                else:
+                    rows = [ds[row_offset + offset] for offset in range(history_images)]
+            else:
+                rows = [ds[row_offset + i]]
+            messages = _build_messages(rows, modality, question)
             content, ttft_s, total_s = _send_request(client, model, messages, max_tokens)
 
             # rough token count from whitespace split (avoids loading tokenizer)
@@ -124,9 +156,10 @@ def run(
             result = ResultRow(
                 row_index=i,
                 modality=modality,
+                history_images=history_images if modality == "image" else 0,
                 is_warmup=is_warmup,
                 model=model,
-                vision_tokens=row["vision_tokens"],
+                vision_tokens=sum(row["vision_tokens"] for row in rows) if modality == "image" else rows[0]["vision_tokens"],
                 ttft_s=ttft_s,
                 total_latency_s=total_s,
                 completion_tokens=completion_tokens,
@@ -145,7 +178,7 @@ def run(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run inference latency benchmark.")
     parser.add_argument("--base-url", required=True, help="vLLM server URL (e.g. http://localhost:8000/v1)")
-    parser.add_argument("--model", default="Qwen/Qwen3-VL-8B-Instruct")
+    parser.add_argument("--model", default="MODEL")
     parser.add_argument("--modality", required=True, choices=["image", "text"])
     parser.add_argument("--dataset", default=str(DATASET_DIR))
     parser.add_argument("--output", required=True, help="Path to output JSONL file")
@@ -153,6 +186,9 @@ def main() -> None:
     parser.add_argument("--max-tokens", type=int, default=10)
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--runs", type=int, default=10)
+    parser.add_argument("--history-images", type=int, default=1, help="Number of images to include per request when modality=image.")
+    parser.add_argument("--history-mode", choices=["sliding", "disjoint", "prefix"], default="sliding", help="How image history windows are constructed.")
+    parser.add_argument("--row-offset", type=int, default=0, help="Starting dataset row offset for this run.")
     parser.add_argument("--api-key", default="EMPTY")
     args = parser.parse_args()
 
@@ -166,6 +202,9 @@ def main() -> None:
         max_tokens=args.max_tokens,
         warmups=args.warmups,
         runs=args.runs,
+        history_images=args.history_images,
+        row_offset=args.row_offset,
+        history_mode=args.history_mode,
         api_key=args.api_key,
     )
     print(f"Results written to {out}")
