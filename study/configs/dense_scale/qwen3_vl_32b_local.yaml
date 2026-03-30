@@ -1,0 +1,9 @@
+experiment: dense_scale_qwen3_vl_32b_local
+model: Qwen/Qwen3-VL-32B-Instruct
+base_url: http://localhost:8000/v1
+region: local
+context_mode: full_history
+context_max_size: 100
+warmup_size: 10
+max_tokens: 10
+output_path: results/raw/dense_scale_qwen3_vl_32b_local.jsonl

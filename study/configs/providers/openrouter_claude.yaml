@@ -1,0 +1,9 @@
+experiment: openrouter_claude
+model: anthropic/claude-3.7-sonnet
+base_url: https://openrouter.ai/api/v1
+region: provider
+context_mode: full_history
+context_max_size: 100
+warmup_size: 10
+max_tokens: 10
+output_path: results/raw/openrouter_claude.jsonl
