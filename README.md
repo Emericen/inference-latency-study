@@ -43,6 +43,7 @@ study/
   capture.py              Optional screenshot capture utility
   run.py                  Run one benchmark case from a YAML config
   aggregate.py            Re-aggregate a JSONL file into CSV
+  plot.py                 Generate SVG plots for the README from summary CSVs
   configs/                Experiment configs
 ```
 
@@ -161,6 +162,189 @@ make vllm-down
 make vllm-up
 ```
 
+## Runs Completed Today
+
+The current benchmark outputs in `results/` were generated with the workflow below.
+
+1. Create a RunPod node.
+2. SSH into the node and start `vllm serve` manually in the foreground.
+3. For local runs, execute `study/run.py` on the GPU node and point it at `http://localhost:8000/v1`.
+4. For remote runs, execute `study/run.py` from this machine and point it at `https://<POD_ID>-8000.proxy.runpod.net/v1`.
+5. Restart `vllm` manually between independent sweeps so caches do not leak across experiments.
+6. Within a sweep, keep one live server and measure context sizes `1..100` so prefix-cache reuse remains part of the workload.
+
+The nodes used today were:
+
+- `1x H100 SXM`, `US-CA-2`
+  used for dense scale `2B/4B/8B`, local full-history and omitted-history, and remote-near full-history and omitted-history
+- `2x H100 SXM`, tensor parallel `2`
+  used for the local `32B dense` versus `30B-A3B MoE` comparison
+- `1x H100 SXM`, `US-MO-1`
+  used for remote-far full-history and omitted-history
+
+The exact server launch commands used were:
+
+`1x H100`, `2B`
+```bash
+.venv/bin/vllm serve Qwen/Qwen3-VL-2B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --served-model-name Qwen/Qwen3-VL-2B-Instruct \
+  --enable-prefix-caching \
+  --tensor-parallel-size 1 \
+  --trust-remote-code
+```
+
+`1x H100`, `4B`
+```bash
+.venv/bin/vllm serve Qwen/Qwen3-VL-4B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --served-model-name Qwen/Qwen3-VL-4B-Instruct \
+  --enable-prefix-caching \
+  --tensor-parallel-size 1 \
+  --trust-remote-code
+```
+
+`1x H100`, `8B`
+```bash
+.venv/bin/vllm serve Qwen/Qwen3-VL-8B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --served-model-name Qwen/Qwen3-VL-8B-Instruct \
+  --enable-prefix-caching \
+  --tensor-parallel-size 1 \
+  --trust-remote-code
+```
+
+`2x H100`, `32B dense`
+```bash
+.venv/bin/vllm serve Qwen/Qwen3-VL-32B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --served-model-name Qwen/Qwen3-VL-32B-Instruct \
+  --enable-prefix-caching \
+  --tensor-parallel-size 2 \
+  --trust-remote-code
+```
+
+`2x H100`, `30B-A3B MoE`
+```bash
+.venv/bin/vllm serve Qwen/Qwen3-VL-30B-A3B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000 \
+  --served-model-name Qwen/Qwen3-VL-30B-A3B-Instruct \
+  --enable-prefix-caching \
+  --tensor-parallel-size 2 \
+  --trust-remote-code
+```
+
+The completed runs are:
+
+- dense scale, local: `Qwen3-VL-2B`
+- dense scale, local: `Qwen3-VL-4B`
+- dense scale, local: `Qwen3-VL-8B`
+- dense vs MoE, local on `2xH100`: `Qwen3-VL-32B` and `Qwen3-VL-30B-A3B`
+- full-history, local: `Qwen3-VL-8B`
+- omit-past-history, local: `Qwen3-VL-8B`
+- full-history, remote-near (`US-CA-2`): `Qwen3-VL-8B`
+- omit-past-history, remote-near (`US-CA-2`): `Qwen3-VL-8B`
+- full-history, remote-far (`US-MO-1`): `Qwen3-VL-8B`
+- omit-past-history, remote-far (`US-MO-1`): `Qwen3-VL-8B`
+
+The generated raw JSONL files are:
+
+- [dense_scale_qwen3_vl_2b_local.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/dense_scale_qwen3_vl_2b_local.jsonl)
+- [dense_scale_qwen3_vl_4b_local.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/dense_scale_qwen3_vl_4b_local.jsonl)
+- [dense_scale_qwen3_vl_8b_local.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/dense_scale_qwen3_vl_8b_local.jsonl)
+- [dense_vs_moe_qwen3_vl_32b_dense_local.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/dense_vs_moe_qwen3_vl_32b_dense_local.jsonl)
+- [dense_vs_moe_qwen3_vl_30b_a3b_moe_local.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/dense_vs_moe_qwen3_vl_30b_a3b_moe_local.jsonl)
+- [history_sweep_full_local.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/history_sweep_full_local.jsonl)
+- [history_sweep_omit_past_local.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/history_sweep_omit_past_local.jsonl)
+- [history_sweep_full_remote_near.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/history_sweep_full_remote_near.jsonl)
+- [history_sweep_omit_past_remote_near.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/history_sweep_omit_past_remote_near.jsonl)
+- [history_sweep_full_remote_far.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/history_sweep_full_remote_far.jsonl)
+- [history_sweep_omit_past_remote_far.jsonl](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/raw/history_sweep_omit_past_remote_far.jsonl)
+
+The generated summary CSV files are:
+
+- [dense_scale_qwen3_vl_2b_local.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/dense_scale_qwen3_vl_2b_local.csv)
+- [dense_scale_qwen3_vl_4b_local.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/dense_scale_qwen3_vl_4b_local.csv)
+- [dense_scale_qwen3_vl_8b_local.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/dense_scale_qwen3_vl_8b_local.csv)
+- [dense_vs_moe_qwen3_vl_32b_dense_local.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/dense_vs_moe_qwen3_vl_32b_dense_local.csv)
+- [dense_vs_moe_qwen3_vl_30b_a3b_moe_local.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/dense_vs_moe_qwen3_vl_30b_a3b_moe_local.csv)
+- [history_sweep_full_local.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/history_sweep_full_local.csv)
+- [history_sweep_omit_past_local.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/history_sweep_omit_past_local.csv)
+- [history_sweep_full_remote_near.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/history_sweep_full_remote_near.csv)
+- [history_sweep_omit_past_remote_near.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/history_sweep_omit_past_remote_near.csv)
+- [history_sweep_full_remote_far.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/history_sweep_full_remote_far.csv)
+- [history_sweep_omit_past_remote_far.csv](/Users/eddyliang/Desktop/workfile/inference-latency-study/results/summaries/history_sweep_omit_past_remote_far.csv)
+
+One deliberate methodological note:
+
+- `32B dense` was not included in the `1xH100` dense-scale series, because it does not fit on a single H100 without changing the serving setup. Instead, `32B dense` was run in the separate `2xH100` dense-vs-MoE comparison against `30B-A3B`.
+
+## Findings
+
+These runs answer most of the README's core questions:
+
+- dense scale on the same `1xH100` hardware is covered for `2B`, `4B`, and `8B`
+- dense versus MoE is covered for `32B dense` versus `30B-A3B` on the same `2xH100` setup
+- context growth is covered from `1` to `100` text+image pairs
+- full-history versus omitted-history is covered locally, from a near remote region, and from a farther remote region
+
+These runs do not yet cover:
+
+- `32B` in the same apples-to-apples `1xH100` dense-scale plot
+- the OpenRouter provider appendix
+
+One important caveat:
+
+- each context size currently has a single measured request, so these curves should be read as observed sweep traces rather than robust percentile benchmarks
+
+### Dense Scale on 1x H100
+
+![Dense scale local TTFT](assets/plots/dense_scale_local_ttft.svg)
+
+- on the same `1xH100`, `2B`, `4B`, and `8B` all stay in the sub-`1.5s` TTFT regime even at context size `100`
+- at context size `100`, local TTFT is about `0.863s` for `2B`, `1.107s` for `4B`, and `1.169s` for `8B`
+- model scale matters, but within `2B -> 8B` it is not the dominant source of latency compared with multimodal context growth
+
+### 30B-A3B MoE vs 32B Dense on 2x H100
+
+![Dense vs MoE local TTFT](assets/plots/dense_vs_moe_local_ttft.svg)
+
+- `30B-A3B` is consistently faster than `32B dense` under the same `2xH100` tensor-parallel setup
+- at context size `100`, TTFT is about `7.419s` for `30B-A3B` versus `7.933s` for `32B dense`
+- both large models are far slower than `8B`, so the study ends up showing two regimes: `2B/4B/8B` and `30B/32B`
+
+### Full Screenshot History by Region
+
+![Full history by region TTFT](assets/plots/history_full_by_region_ttft.svg)
+
+- resending full screenshot history is the steepest latency driver in the study
+- at context size `100`, TTFT is about `1.170s` local, `2.089s` remote-near, and `2.340s` remote-far
+- remote full-history runs also showed real instability spikes, including about `9.189s` at context size `48` in the near run and about `9.418s` at context size `17` in the far run
+
+### Omitted Past Screenshots by Region
+
+![Omitted history by region TTFT](assets/plots/history_omit_by_region_ttft.svg)
+
+- replacing old screenshots with text placeholders flattens the curve dramatically
+- at context size `100`, TTFT is about `0.262s` local, `0.405s` remote-near, and `0.723s` remote-far
+- compared with full-history at context size `100`, omitted-history reduces TTFT to about:
+  - `22%` of full-history locally
+  - `19%` of full-history remote-near
+  - `31%` of full-history remote-far
+
+### Plot Generation
+
+Regenerate the README plots from the summary CSVs with:
+
+```bash
+python study/plot.py
+```
+
 ## Optional: Capture More Screenshots
 
 The repo already includes a fixed screenshot corpus under `data/screenshots/`, so capture is not required for normal use.
@@ -215,11 +399,7 @@ runpodctl remove pod <POD_ID>
 
 ## What Still Needs To Change
 
-The config matrix is now in place. The remaining work is to run it cleanly and turn the outputs into findings:
+The main controlled `Qwen3-VL` study has now been run. The remaining work is:
 
-- run the dense scale sweeps: `2B`, `4B`, `8B`, `32B`
-- run the dense vs MoE sweeps: `32B` vs `30B-A3B`
-- run local, remote-near, and remote-far sweeps with manual cold restarts between them
-- run the full-history and omitted-history sweeps
 - run the OpenRouter provider appendix sweeps
-- summarize the resulting sweep curves into tables and plots for the README
+- rerun selected cases with repeated measurements if stronger percentile claims are needed
