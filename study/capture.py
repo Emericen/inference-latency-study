@@ -1,7 +1,5 @@
 """Capture screenshots on left-click. Right-click to stop."""
 
-import sys
-import time
 from datetime import datetime
 from pathlib import Path
 
@@ -9,7 +7,7 @@ import mss
 from PIL import Image
 from pynput import mouse
 
-OUTPUT_DIR = Path(__file__).resolve().parent / "screenshots"
+OUTPUT_DIR = Path(__file__).resolve().parents[1] / "data" / "screenshots"
 
 
 def _take_screenshot() -> Path:

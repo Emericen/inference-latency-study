@@ -1,0 +1,9 @@
+experiment: history_sweep_omit_past_remote_far
+model: Qwen/Qwen3-VL-8B-Instruct
+base_url: https://<POD_ID>-8000.proxy.runpod.net/v1
+region: remote-far
+context_mode: omit_past_history
+context_max_size: 100
+max_tokens: 10
+warmup_size: 2
+output_path: results/raw/history_sweep_omit_past_remote_far.jsonl

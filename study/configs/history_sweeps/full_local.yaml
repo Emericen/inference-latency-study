@@ -1,0 +1,9 @@
+experiment: history_sweep_full_local
+model: Qwen/Qwen3-VL-8B-Instruct
+base_url: http://localhost:8000/v1
+region: local
+context_mode: full_history
+context_max_size: 100
+max_tokens: 10
+warmup_size: 2
+output_path: results/raw/history_sweep_full_local.jsonl
