@@ -1,5 +1,4 @@
 MODEL ?= Qwen/Qwen3-VL-8B-Instruct
-SERVED_MODEL_NAME ?= MODEL
 PORT ?= 8000
 TENSOR_PARALLEL ?= 1
 LOG_DIR ?= results/logs
@@ -25,7 +24,7 @@ vllm-up: ensure-venv
 		nohup "$(VLLM)" serve "$(MODEL)" \
 			--host 0.0.0.0 \
 			--port "$(PORT)" \
-			--served-model-name "$(SERVED_MODEL_NAME)" \
+			--served-model-name "$(MODEL)" \
 			--enable-prefix-caching \
 			--tensor-parallel-size $(TENSOR_PARALLEL) \
 			--trust-remote-code \
