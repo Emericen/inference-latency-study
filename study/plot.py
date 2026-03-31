@@ -194,7 +194,7 @@ def generate_plots() -> list[Path]:
     ]
     dense_scale_path = PLOTS_DIR / "dense_scale_local_ttft.svg"
     _svg_line_plot(
-        x_label="Context Size",
+        x_label="Context Size (text+image pairs)",
         y_label="TTFT (seconds)",
         series=[_make_series(df, label=label, color=color) for label, df, color in dense_scale],
         output_path=dense_scale_path,
@@ -207,7 +207,7 @@ def generate_plots() -> list[Path]:
     ]
     moe_path = PLOTS_DIR / "dense_vs_moe_local_ttft.svg"
     _svg_line_plot(
-        x_label="Context Size",
+        x_label="Context Size (text+image pairs)",
         y_label="TTFT (seconds)",
         series=[_make_series(df, label=label, color=color) for label, df, color in moe_vs_dense],
         output_path=moe_path,
@@ -221,7 +221,7 @@ def generate_plots() -> list[Path]:
     ]
     full_path = PLOTS_DIR / "full_screenshot_history_by_region_ttft.svg"
     _svg_line_plot(
-        x_label="Context Size",
+        x_label="Context Size (text+image pairs)",
         y_label="TTFT (seconds)",
         series=[_make_series(df, label=label, color=color) for label, df, color in full_history],
         output_path=full_path,
@@ -235,7 +235,7 @@ def generate_plots() -> list[Path]:
     ]
     omit_path = PLOTS_DIR / "omit_past_screenshot_history_by_region_ttft.svg"
     _svg_line_plot(
-        x_label="Context Size",
+        x_label="Context Size (text+image pairs)",
         y_label="TTFT (seconds)",
         series=[_make_series(df, label=label, color=color) for label, df, color in omitted_history],
         output_path=omit_path,
