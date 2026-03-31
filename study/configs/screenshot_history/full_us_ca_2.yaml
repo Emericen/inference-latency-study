@@ -1,9 +1,9 @@
-experiment: history_sweep_full_remote_far
+experiment: screenshot_history_full_us_ca_2
 model: Qwen/Qwen3-VL-8B-Instruct
 base_url: https://<POD_ID>-8000.proxy.runpod.net/v1
-region: remote-far
+region: us-ca-2
 context_mode: full_history
 context_max_size: 100
 max_tokens: 10
 warmup_size: 10
-output_path: results/raw/history_sweep_full_remote_far.jsonl
+output_path: results/raw/screenshot_history_full_us_ca_2.jsonl

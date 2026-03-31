@@ -27,7 +27,7 @@ class RunConfig:
     experiment: str  # Experiment name used in outputs, e.g. "dense_scale_qwen3_vl_8b_local".
     base_url: str  # vLLM or provider base URL, e.g. "http://localhost:8000/v1".
     model: str  # Model name sent to the API, e.g. "Qwen/Qwen3-VL-8B-Instruct".
-    region: str = "unknown"  # Human-readable server location tag, e.g. "local" or "remote-near".
+    region: str = "unknown"  # Human-readable server location tag, e.g. "local", "us-ca-2", or "us-mo-1".
     question: str = "What do you see?"  # Text block repeated for each request unit.
     max_tokens: int = 10  # Maximum completion tokens to request from the model.
     warmup_size: int = 10  # Number of warmup requests before the measured context sweep.

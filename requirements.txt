@@ -4,3 +4,4 @@ Pillow==12.1.1
 PyYAML==6.0.3
 mss==10.1.0
 pynput==1.8.1
+vllm==0.18.0

@@ -40,18 +40,16 @@ class Series:
 
 def _svg_line_plot(
     *,
-    title: str,
-    subtitle: str,
     x_label: str,
     y_label: str,
     series: list[Series],
     output_path: Path,
 ) -> None:
     width = 1040
-    height = 640
+    height = 560
     left = 90
     right = 220
-    top = 70
+    top = 32
     bottom = 80
     plot_w = width - left - right
     plot_h = height - top - bottom
@@ -156,8 +154,6 @@ def _svg_line_plot(
 
     svg = f"""<svg xmlns="http://www.w3.org/2000/svg" width="{width}" height="{height}" viewBox="0 0 {width} {height}">
   <rect width="{width}" height="{height}" fill="{BACKGROUND}"/>
-  <text x="{left}" y="38" font-size="28" font-weight="700" font-family="Helvetica, Arial, sans-serif" fill="{TEXT}">{title}</text>
-  <text x="{left}" y="62" font-size="16" font-family="Helvetica, Arial, sans-serif" fill="{SUBTLE}">{subtitle}</text>
   {''.join(grid_lines)}
   <line x1="{left}" y1="{top + plot_h}" x2="{left + plot_w}" y2="{top + plot_h}" stroke="{AXIS}" stroke-width="2"/>
   <line x1="{left}" y1="{top}" x2="{left}" y2="{top + plot_h}" stroke="{AXIS}" stroke-width="2"/>
@@ -198,8 +194,6 @@ def generate_plots() -> list[Path]:
     ]
     dense_scale_path = PLOTS_DIR / "dense_scale_local_ttft.svg"
     _svg_line_plot(
-        title="Dense Scale on 1x H100",
-        subtitle="Local TTFT across context sizes 1..100 for Qwen3-VL dense models.",
         x_label="Context Size",
         y_label="TTFT (seconds)",
         series=[_make_series(df, label=label, color=color) for label, df, color in dense_scale],
@@ -213,8 +207,6 @@ def generate_plots() -> list[Path]:
     ]
     moe_path = PLOTS_DIR / "dense_vs_moe_local_ttft.svg"
     _svg_line_plot(
-        title="30B-A3B MoE vs 32B Dense on 2x H100",
-        subtitle="Local TTFT across context sizes 1..100 under the same tensor-parallel setup.",
         x_label="Context Size",
         y_label="TTFT (seconds)",
         series=[_make_series(df, label=label, color=color) for label, df, color in moe_vs_dense],
@@ -223,14 +215,12 @@ def generate_plots() -> list[Path]:
     outputs.append(moe_path)
 
     full_history = [
-        ("Local", _load("history_sweep_full_local.csv"), PALETTE[1]),
-        ("Remote Near", _load("history_sweep_full_remote_near.csv"), PALETTE[4]),
-        ("Remote Far", _load("history_sweep_full_remote_far.csv"), PALETTE[7]),
+        ("local", _load("screenshot_history_full_local.csv"), PALETTE[1]),
+        ("us-ca-2", _load("screenshot_history_full_us_ca_2.csv"), PALETTE[4]),
+        ("us-mo-1", _load("screenshot_history_full_us_mo_1.csv"), PALETTE[7]),
     ]
-    full_path = PLOTS_DIR / "history_full_by_region_ttft.svg"
+    full_path = PLOTS_DIR / "full_screenshot_history_by_region_ttft.svg"
     _svg_line_plot(
-        title="Full Screenshot History by Region",
-        subtitle="8B TTFT when every past screenshot is resent in the request context.",
         x_label="Context Size",
         y_label="TTFT (seconds)",
         series=[_make_series(df, label=label, color=color) for label, df, color in full_history],
@@ -239,14 +229,12 @@ def generate_plots() -> list[Path]:
     outputs.append(full_path)
 
     omitted_history = [
-        ("Local", _load("history_sweep_omit_past_local.csv"), PALETTE[1]),
-        ("Remote Near", _load("history_sweep_omit_past_remote_near.csv"), PALETTE[4]),
-        ("Remote Far", _load("history_sweep_omit_past_remote_far.csv"), PALETTE[7]),
+        ("local", _load("screenshot_history_omit_past_local.csv"), PALETTE[1]),
+        ("us-ca-2", _load("screenshot_history_omit_past_us_ca_2.csv"), PALETTE[4]),
+        ("us-mo-1", _load("screenshot_history_omit_past_us_mo_1.csv"), PALETTE[7]),
     ]
-    omit_path = PLOTS_DIR / "history_omit_by_region_ttft.svg"
+    omit_path = PLOTS_DIR / "omit_past_screenshot_history_by_region_ttft.svg"
     _svg_line_plot(
-        title="Omitted Past Screenshots by Region",
-        subtitle="8B TTFT when only the latest screenshot remains visual and past ones are text placeholders.",
         x_label="Context Size",
         y_label="TTFT (seconds)",
         series=[_make_series(df, label=label, color=color) for label, df, color in omitted_history],
