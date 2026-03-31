@@ -1,11 +1,13 @@
 # Inference Latency Study
 
-Benchmark for screenshot-based computer-use agents that asks a simple question: which levers most meaningfully reduce inference latency?
+Benchmark for screenshot-based computer-use agents that asks a simple question: 
+
+> Which levers most meaningfully reduce inference latency?
 
 This repo compares three practical levers:
 - model size
-- how much screenshot history is included in each request
 - where the model server is located
+- how much screenshot history is included in each request
 
 This repo measures latency only, not response quality. The model response is discarded.
 
