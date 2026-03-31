@@ -1,0 +1,2 @@
+modality,history_images,model,base_url,requests,vision_tokens_mean,ttft_p50_s,ttft_p95_s,ttft_mean_s,total_p50_s,total_p95_s,total_mean_s,decode_tps_p50,decode_tps_mean,completion_tokens_mean
+image,1,MODEL,https://clgy1rhkc9qvx1-8000.proxy.runpod.net/v1,10,943.0,0.16688312496989952,0.3783108000876376,0.21894838330335883,0.228078437270596,0.40861757528036796,0.27510312511585605,127.73842486093994,351.947354003942,9.0

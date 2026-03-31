@@ -1,0 +1,2 @@
+modality,history_images,model,base_url,requests,vision_tokens_mean,ttft_p50_s,ttft_p95_s,ttft_mean_s,total_p50_s,total_p95_s,total_mean_s,decode_tps_p50,decode_tps_mean,completion_tokens_mean
+image,4,MODEL,http://127.0.0.1:8000/v1,10,3772.0,0.2374091905076055,0.3688507199753068,0.27495926297269724,0.303935613017529,0.4354163039242844,0.34150451663881504,120.42328741583916,120.22163224263731,9.0
